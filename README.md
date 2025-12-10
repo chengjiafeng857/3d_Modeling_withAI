@@ -43,7 +43,7 @@ Text Spec  →  AI Prompts  →  AI Images  →  AI 3D  →  3D Eval  →  AI Ri
 ```
 
 This project automates the character creation pipeline using multiple AI models working together.
-
+## The Repo for Evaluation based on Eval3D is at https://github.com/chengjiafeng857/3d_Modeling_withAI.git
 ---
 
 ## 🏗️ Architecture Overview
