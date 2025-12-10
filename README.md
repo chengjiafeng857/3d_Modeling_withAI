@@ -29,10 +29,13 @@ Concept Artist  →  2D Artist  →  3D Modeler  →  Rigger  →  Animator
 AI-ASSISTED CHARACTER PIPELINE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Text Spec  →  AI Prompts  →  AI Images  →  AI 3D  →  AI Rig  →  Game
-    │             │             │            │          │         │
-    ▼             ▼             ▼            ▼          ▼         ▼
- (5 min)      (5 min)       (5 min)     (30 min)   (30 min)   (import)
+Text Spec  →  AI Prompts  →  AI Images  →  AI 3D  →  3D Eval  →  AI Rig  →  Game
+    │             │             │            │          │          │         │
+    ▼             ▼             ▼            ▼          ▼          ▼         ▼
+ (5 min)      (5 min)       (5 min)     (30 min)  (5 min)    (30 min)   (import)
+                                            │          │
+                                            └────◄─────┘
+                                          (iterate if neccessary)
 
                     TOTAL: 1-2 hours per character
 
@@ -79,15 +82,15 @@ This project automates the character creation pipeline using multiple AI models 
 
 ## 📦 Project Components
 
-| Stage | Component | Status | Tools |
-|-------|-----------|--------|-------|
-| 1-2 | **[Prompt Generation](./prompt_generation/)** | ✅ Complete | Python + Typer CLI |
-| 2 | **LLM Refinement** | ✅ Complete | OpenAI GPT-5 |
-| 3 | **2D T-Pose Generation** | ✅ Complete | Gemini 3 Pro Image Preview |
-| 4 | **3D Model Generation** | 🔜 Planned | Tencent Hunyuan.3D |
-| 5 | **Auto-Rigging + Animation** | 🔜 Planned | Meshy / MexMiao |
-| 6 | **Quality Assessment** | 🔜 Planned | [Eval3D Pipeline](https://github.com/eval3d/eval3d-codebase) |
-| 7 | **Game Integration** | 🔜 Planned | Unreal Engine 5 |
+| Stage | Component | Automation | Tools |
+|-------|-----------|------------|-------|
+| 1-2 | **[Prompt Generation](./prompt_generation/)** | 🤖 Automated | Python + Typer CLI |
+| 2 | **LLM Refinement** | 🤖 Automated | OpenAI GPT-5 |
+| 3 | **2D T-Pose Generation** | 🤖 Automated | Gemini 3 Pro Image Preview |
+| 4 | **3D Model Generation** | 👤 Manual | Tencent Hunyuan.3D (Web UI) |
+| 6 | **Quality Assessment** | 🤖 Automated | [Eval3D Pipeline](https://github.com/chengjiafeng857/Eval3d_pipline) |
+| 5 | **Auto-Rigging + Animation** | 👤 Manual | Meshy / MexMiao (Web UI) |
+| 7 | **Game Integration** | 👤 Manual | Unreal Engine 5 (Editor) |
 
 ---
 
@@ -280,10 +283,43 @@ output/2024-12-09_15-30-45/
   - Up to 14 reference images
   - Built-in "thinking" mode
 
-### Planned: Hunyuan.3D
+### Tencent Hunyuan.3D
 
 - **Purpose:** Convert 2D T-pose images to 3D models
 - **Output:** .fbx/.obj files ready for game engines
+
+### Eval3D Pipeline (Quality Assessment)
+
+- **Repository:** [github.com/chengjiafeng857/Eval3d_pipline](https://github.com/chengjiafeng857/Eval3d_pipline.git)
+- **Based on:** [Eval3D: Interpretable and Fine-grained Evaluation for 3D Generation](https://github.com/eval3d/eval3d-codebase) (CVPR 2025)
+- **Purpose:** Automated quality assessment for AI-generated 3D models
+
+**5 Comprehensive Metrics:**
+
+| Metric | Range | What It Measures |
+|--------|-------|------------------|
+| **Geometric Consistency** | 0-100 | Surface normal quality (texture-geometry alignment) |
+| **Semantic Consistency** | 0-100 | View consistency (detects Janus problem) |
+| **Structural Consistency** | 0-100 | 3D predictability via Zero123 |
+| **Aesthetics** | 0-1 | Visual appeal (ImageReward) |
+| **Text-3D Alignment** | 0-1 | Prompt adherence (GPT-4o VQA) |
+
+**Quick Usage:**
+```bash
+# Evaluate any 3D mesh
+uv run eval3d-pipeline eval-mesh ./character.obj \
+    --algo my_pipeline \
+    --prompt "Android archaeologist, stylized sci-fi"
+
+# Quick evaluation (aesthetics + text-3D only)
+uv run eval3d-pipeline eval-mesh ./character.obj --quick
+```
+
+**Key Features:**
+- ✅ Universal mesh support (`.obj`, `.glb`, `.ply`, `.stl`, `.fbx`)
+- ✅ Single command: mesh in → quality scores out
+- ✅ No threestudio required
+- ✅ Batch processing for multiple assets
 
 ---
 
@@ -341,47 +377,54 @@ This codebase is designed to be **educational** and supports a full course curri
 
 ---
 
-## 🛣️ Roadmap
+## 🛣️ Pipeline Stages
 
-### Stages 1-3: ✅ Complete
+### Stage 1: Character Specification
+- YAML/JSON config schema
+- Template with documentation
+- Validation and loading
 
-- [x] **Stage 1:** Character Specification
-  - [x] YAML/JSON config schema
-  - [x] Template with documentation
-  - [x] Validation and loading
-  
-- [x] **Stage 2:** Prompt Engineering
-  - [x] Base prompt templates (Stage 2a)
-  - [x] LLM refinement with GPT-5 (Stage 2b)
-  - [x] Web search for current AI art trends
-  - [x] T-pose specific prompts
-  
-- [x] **Stage 3:** 2D T-Pose Generation
-  - [x] Gemini 3 Pro Image Preview integration
-  - [x] Multi-view support (front/side/back)
-  - [x] 2K resolution output
+### Stage 2: Prompt Engineering
+- Base prompt templates
+- LLM refinement with GPT-5
+- Web search for current AI art trends
+- T-pose specific prompts
 
-### Stages 4-7: 🔜 Planned
+### Stage 3: 2D T-Pose Generation
+- Gemini 3 Pro Image Preview
+- Multi-view support (front/side/back)
+- 2K resolution output
 
-- [ ] **Stage 4:** 3D Model Generation
-  - [ ] Tencent Hunyuan.3D integration
-  - [ ] Meshy AI alternative
-  - [ ] Mesh export (.fbx/.obj/.glb)
-  
-- [ ] **Stage 5:** Auto-Rigging & Animation
-  - [ ] MexMiao auto-rigging
-  - [ ] Idle/Walk/Attack animation generation
-  - [ ] FBX export for game engines
-  
-- [ ] **Stage 6:** Quality Assessment
-  - [ ] Eval3D pipeline integration
-  - [ ] Geometric/Semantic consistency metrics
-  - [ ] Aesthetics and Text-3D alignment scores
-  
-- [ ] **Stage 7:** Game Engine Integration
-  - [ ] Unreal Engine 5 import
-  - [ ] Animation Blueprint setup
-  - [ ] Character Blueprint integration
+### Stage 4: 3D Model Generation
+- Tencent Hunyuan.3D
+- Meshy AI alternative
+- Mesh export (.fbx/.obj/.glb)
+
+### Stage 5: Auto-Rigging & Animation
+- MexMiao auto-rigging
+- Idle/Walk/Attack animation generation
+- FBX export for game engines
+
+### Stage 6: Quality Assessment
+- Eval3D pipeline integration
+- Geometric/Semantic consistency metrics
+- Aesthetics and Text-3D alignment scores
+
+### Stage 7: Game Engine Integration
+- Unreal Engine 5 import
+- Animation Blueprint setup
+- Character Blueprint integration
+
+---
+
+## 🐛 Debug Tips (quick checklist)
+
+- **Gemini image is empty**: ensure `GEMINI_API_KEY` is set; include view and background constraints (front/side/back, white background, neutral lighting).
+- **LLM refine fails**: set `OPENAI_API_KEY`; use `--preview` to inspect the payload before calling the API.
+- **2D not 3D-friendly**: regenerate with stricter T-pose prompts (no dramatic lighting, no cluttered backgrounds, clear silhouette and props).
+- **Eval3D score low (<75%)**: fix the lowest metric first (Janus → add consistent multi-view images; geometric → cleaner normals/textures); re-run [Eval3D](https://github.com/chengjiafeng857/Eval3d_pipline).
+- **Unreal shows T-pose**: set Anim Blueprint on the Skeletal Mesh (Details → Animation → Anim Class) and ensure Idle/Walk transitions exist.
+- **Rig hands/shoulders explode**: re-run auto-rig with finger bones enabled (Meshy/MexMiao) and verify scale on export/import.
 
 ---
 
@@ -424,6 +467,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **OpenAI** - GPT-5 API for prompt refinement
 - **Google** - Gemini 3 Pro for image generation
 - **Tencent** - Hunyuan.3D (planned integration)
+- **Eval3D Team** - [Duggal et al. (CVPR 2025)](https://github.com/eval3d/eval3d-codebase) for interpretable 3D evaluation metrics
 - **Community** - AI art prompt engineering best practices
 
 ---
