@@ -1,5 +1,7 @@
 # 🎮 3D Modeling with AI
 
+> **AI-Assisted Character Asset Pipeline: From Prompt to Playable Character**
+> 
 > An AI-powered pipeline for generating game-ready 3D character models from simple text descriptions.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -12,13 +14,29 @@
 Transform the traditional 3D character creation workflow:
 
 ```
-Traditional:  Concept Artist → 2D Art → 3D Modeler → Rigger → Animator
-                   ↓              ↓          ↓          ↓
-              (weeks)        (weeks)    (weeks)    (weeks)
+TRADITIONAL CHARACTER PIPELINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-With AI:      Text Description → AI Pipeline → Game-Ready 3D Model
-                    ↓                               ↓
-               (minutes)                        (minutes)
+Concept Artist  →  2D Artist  →  3D Modeler  →  Rigger  →  Animator
+     │                │              │            │           │
+     ▼                ▼              ▼            ▼           ▼
+  (1-2 weeks)    (1-2 weeks)   (2-4 weeks)  (1-2 weeks) (2-4 weeks)
+
+                    TOTAL: 8-14 weeks per character
+```
+
+```
+AI-ASSISTED CHARACTER PIPELINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Text Spec  →  AI Prompts  →  AI Images  →  AI 3D  →  AI Rig  →  Game
+    │             │             │            │          │         │
+    ▼             ▼             ▼            ▼          ▼         ▼
+ (5 min)      (5 min)       (5 min)     (30 min)   (30 min)   (import)
+
+                    TOTAL: 1-2 hours per character
+
+⚠️ Human judgment still required at each stage!
 ```
 
 This project automates the character creation pipeline using multiple AI models working together.
@@ -29,18 +47,30 @@ This project automates the character creation pipeline using multiple AI models 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                        3D MODELING WITH AI PIPELINE                          │
+│                    AI-DRIVEN CHARACTER ASSET PIPELINE                        │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌────────┐│
-│  │  Text    │ → │  Prompt  │ → │  2D      │ → │  3D      │ → │ Game   ││
-│  │  Spec    │    │Generator │    │ T-pose  │    │ Model   │    │ Ready  ││
-│  │  (YAML)  │    │(GPT+Gemini)   │ Images  │    │(Hunyuan)│    │ Asset  ││
-│  └──────────┘    └──────────┘    └──────────┘    └──────────┘    └────────┘│
-│       │               │               │               │              │      │
-│       ▼               ▼               ▼               ▼              ▼      │
-│   Character      Optimized       Front/Side/      .fbx/.obj       Rigged   │
-│   Definition     Prompts         Back Views       Mesh            Model    │
+│   ┌───────────┐    ┌───────────┐    ┌───────────┐    ┌───────────┐         │
+│   │  Stage 1  │ →  │  Stage 2  │ →  │  Stage 3  │ →  │  Stage 4  │         │
+│   │ Character │    │  Prompt   │    │    2D     │    │    3D     │         │
+│   │   Spec    │    │ Refine    │    │  T-Pose   │    │  Model    │         │
+│   │  (YAML)   │    │  (GPT-5)  │    │ (Gemini)  │    │(Hunyuan)  │         │
+│   └───────────┘    └───────────┘    └───────────┘    └───────────┘         │
+│        │                │                │                │                 │
+│        ▼                ▼                ▼                ▼                 │
+│   Character         Optimized        Front/Side/       Rigged             │
+│   Definition        Prompts          Back Images       .fbx/.obj          │
+│                                                                              │
+│   ┌───────────┐    ┌───────────┐    ┌───────────┐                          │
+│   │  Stage 5  │ →  │  Stage 6  │ →  │  Stage 7  │                          │
+│   │   Rig +   │    │  Eval3D   │    │  Unreal   │                          │
+│   │ Animation │    │Assessment │    │Integration│                          │
+│   │(MexMiao)  │    │ Pipeline  │    │   (UE5)   │                          │
+│   └───────────┘    └───────────┘    └───────────┘                          │
+│        │                │                │                                  │
+│        ▼                ▼                ▼                                  │
+│   Idle/Walk/        Quality          Playable                              │
+│   Attack Clips      Scores           Character                             │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -49,12 +79,15 @@ This project automates the character creation pipeline using multiple AI models 
 
 ## 📦 Project Components
 
-| Component | Status | Description |
-|-----------|--------|-------------|
-| **[Prompt Generation](./prompt_generation/)** | ✅ Complete | AI prompt engineering pipeline |
-| **3D Generation** | 🔜 Planned | Hunyuan.3D integration |
-| **Model Assessment** | 🔜 Planned | Quality validation pipeline |
-| **Rigging Automation** | 🔜 Planned | Auto-rigging with Mixamo/AI |
+| Stage | Component | Status | Tools |
+|-------|-----------|--------|-------|
+| 1-2 | **[Prompt Generation](./prompt_generation/)** | ✅ Complete | Python + Typer CLI |
+| 2 | **LLM Refinement** | ✅ Complete | OpenAI GPT-5 |
+| 3 | **2D T-Pose Generation** | ✅ Complete | Gemini 3 Pro Image Preview |
+| 4 | **3D Model Generation** | 🔜 Planned | Tencent Hunyuan.3D |
+| 5 | **Auto-Rigging + Animation** | 🔜 Planned | Meshy / MexMiao |
+| 6 | **Quality Assessment** | 🔜 Planned | [Eval3D Pipeline](https://github.com/eval3d/eval3d-codebase) |
+| 7 | **Game Integration** | 🔜 Planned | Unreal Engine 5 |
 
 ---
 
@@ -121,25 +154,30 @@ uv run generate_prompts.py all -i configs/aethel.yaml
 
 ```
 3d_Modeling_withAI/
-├── README.md                    # This file
+├── README.md                    # This file - Project overview
 ├── LICENSE                      # MIT License
+├── COURSE_MATERIALS_GUIDE.md    # 📚 Master teaching document (1850+ lines)
+├── TEACHING_GUIDE.md            # 📖 Code architecture walkthrough
 │
-└── prompt_generation/           # 🎨 AI Prompt Engineering Tool
-    ├── README.md                #    Detailed documentation
-    ├── TEACHING_GUIDE.md        #    Educational walkthrough
+└── prompt_generation/           # 🎨 Stages 1-3: Prompt & Image Generation
+    ├── README.md                #    CLI usage documentation
     ├── generate_prompts.py      #    CLI entry point
     ├── src/                     #    Core modules
-    │   ├── models.py            #    Data models
-    │   ├── stage1_base_prompts.py    # Base prompts
-    │   ├── stage2_gemini_prompts.py  # Meta-prompts
-    │   ├── stage2_llm_refiner.py     # OpenAI integration
-    │   ├── stage3_common_prompts.py  # Checklists
-    │   ├── stage4_image_generation.py # Gemini images
-    │   └── file_utils.py        #    File I/O
-    ├── configs/                 #    Character specs
-    │   ├── _template.yaml       #    Template
-    │   └── aethel.yaml          #    Example character
-    └── output/                  #    Generated outputs
+    │   ├── models.py            #    CharacterSpec dataclass
+    │   ├── stage1_base_prompts.py    # Base prompt templates
+    │   ├── stage2_gemini_prompts.py  # Meta-prompts for Gemini
+    │   ├── stage2_llm_refiner.py     # OpenAI GPT-5 integration
+    │   ├── stage3_common_prompts.py  # Checklists & design notes
+    │   ├── stage4_image_generation.py # Gemini 3 Pro images
+    │   └── file_utils.py        #    File I/O utilities
+    ├── configs/                 #    Character specifications
+    │   ├── _template.yaml       #    Template with documentation
+    │   └── aethel.yaml          #    Example: Android archaeologist
+    └── output/                  #    Generated outputs (timestamped)
+        ├── base/                #    Stage 1 outputs
+        ├── refined/             #    Stage 2 outputs
+        ├── common/              #    Stage 3 outputs
+        └── images/              #    T-pose images (.jpg)
 ```
 
 ---
@@ -269,48 +307,81 @@ game_style: "stylized sci-fi"
 
 ## 🎓 Learning Resources
 
-This codebase is designed to be **educational**. Key resources:
+This codebase is designed to be **educational** and supports a full course curriculum.
 
-| Resource | Description |
-|----------|-------------|
-| [TEACHING_GUIDE.md](./prompt_generation/TEACHING_GUIDE.md) | 770+ line comprehensive code walkthrough |
-| [prompt_generation/README.md](./prompt_generation/README.md) | Detailed usage documentation |
-| Source code comments | Every function has line-by-line explanations |
+| Resource | Lines | Description |
+|----------|-------|-------------|
+| [COURSE_MATERIALS_GUIDE.md](./COURSE_MATERIALS_GUIDE.md) | 1850+ | **Master teaching document** - slides, tutorials, assessments, video scripts |
+| [TEACHING_GUIDE.md](./TEACHING_GUIDE.md) | 770+ | Code architecture walkthrough for developers |
+| [prompt_generation/README.md](./prompt_generation/README.md) | 335 | CLI usage documentation |
+| Source code comments | - | Every function has line-by-line explanations |
+
+### Course Structure (7 Modules)
+
+| Module | Topic | Duration |
+|--------|-------|----------|
+| 1 | Introduction to AI Asset Pipelines | 30 min |
+| 2 | Character Specs & Prompt Engineering | 45 min |
+| 3 | 2D Concept Generation (Gemini) | 30 min |
+| 4 | 2D → 3D Conversion (Hunyuan) | 30 min |
+| 5 | Rigging & Animation (MexMiao) | 30 min |
+| 6 | Quality Assessment (Eval3D) | 45 min |
+| 7 | Unreal Integration | 45 min |
 
 ### Python Concepts Demonstrated
 
-- `@dataclass` decorators
+- `@dataclass` decorators with `field(default_factory=list)`
 - Type hints (`def func(x: str) -> dict[str, str]`)
 - `pathlib.Path` for file operations
-- API client patterns (OpenAI, Google)
-- CLI frameworks (Typer)
-- Environment variable handling
+- API client patterns (OpenAI, Google Genai)
+- CLI frameworks (Typer with `Annotated`)
+- Environment variable handling with `dotenv`
 - Error handling with helpful messages
+- Lazy imports for optional dependencies
 
 ---
 
 ## 🛣️ Roadmap
 
-- [x] **Phase 1:** Prompt Generation Pipeline
-  - [x] Base prompt templates
-  - [x] LLM refinement with GPT-5
-  - [x] Gemini image generation
-  - [x] T-pose multi-view support (front/side/back)
+### Stages 1-3: ✅ Complete
+
+- [x] **Stage 1:** Character Specification
+  - [x] YAML/JSON config schema
+  - [x] Template with documentation
+  - [x] Validation and loading
   
-- [ ] **Phase 2:** 3D Model Generation
-  - [ ] Hunyuan.3D integration
-  - [ ] Automatic image-to-3D conversion
-  - [ ] Mesh quality validation
+- [x] **Stage 2:** Prompt Engineering
+  - [x] Base prompt templates (Stage 2a)
+  - [x] LLM refinement with GPT-5 (Stage 2b)
+  - [x] Web search for current AI art trends
+  - [x] T-pose specific prompts
   
-- [ ] **Phase 3:** Model Assessment
-  - [ ] Topology checker
-  - [ ] UV mapping validation
-  - [ ] Animation-readiness score
+- [x] **Stage 3:** 2D T-Pose Generation
+  - [x] Gemini 3 Pro Image Preview integration
+  - [x] Multi-view support (front/side/back)
+  - [x] 2K resolution output
+
+### Stages 4-7: 🔜 Planned
+
+- [ ] **Stage 4:** 3D Model Generation
+  - [ ] Tencent Hunyuan.3D integration
+  - [ ] Meshy AI alternative
+  - [ ] Mesh export (.fbx/.obj/.glb)
   
-- [ ] **Phase 4:** Rigging & Animation
-  - [ ] Auto-rigging integration
-  - [ ] Animation clip generation
-  - [ ] Export to game engines (Unity/Unreal)
+- [ ] **Stage 5:** Auto-Rigging & Animation
+  - [ ] MexMiao auto-rigging
+  - [ ] Idle/Walk/Attack animation generation
+  - [ ] FBX export for game engines
+  
+- [ ] **Stage 6:** Quality Assessment
+  - [ ] Eval3D pipeline integration
+  - [ ] Geometric/Semantic consistency metrics
+  - [ ] Aesthetics and Text-3D alignment scores
+  
+- [ ] **Stage 7:** Game Engine Integration
+  - [ ] Unreal Engine 5 import
+  - [ ] Animation Blueprint setup
+  - [ ] Character Blueprint integration
 
 ---
 
