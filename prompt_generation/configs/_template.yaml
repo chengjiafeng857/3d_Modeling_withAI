@@ -1,0 +1,146 @@
+# ============================================================================
+# CHARACTER SPECIFICATION TEMPLATE
+# ============================================================================
+# 
+# Copy this file to create a new character spec:
+#   cp configs/_template.yaml configs/my_character.yaml
+#
+# Then run:
+#   uv run generate_prompts.py -i configs/my_character.yaml -o prompts -v v1
+#
+# Pipeline: TEXT SPEC → 2D PROMPTS → GEMINI T-POSE → 2D CHECKLIST → Hunyuan.3D
+# ============================================================================
+
+
+# ----------------------------------------------------------------------------
+# REQUIRED FIELD
+# ----------------------------------------------------------------------------
+
+# name (REQUIRED)
+# The character's name. Used in filenames and prompts.
+# Keep it simple - avoid special characters.
+# Examples: "Aethel", "Nova", "Dr. Chen", "Robot-7"
+name: "MyCharacter"
+
+
+# ----------------------------------------------------------------------------
+# OPTIONAL FIELDS (all have defaults if omitted)
+# ----------------------------------------------------------------------------
+
+# role
+# What the character does in the game world.
+# This appears in prompts like "concept art of a {role}".
+# Be specific but concise.
+# Examples:
+#   - "Android archaeologist"
+#   - "Space pirate captain"
+#   - "Medieval blacksmith"
+#   - "Cyberpunk hacker"
+#   - "Fantasy mage apprentice"
+role: ""
+
+# game_style
+# The visual art style for the character.
+# This guides the AI's rendering style.
+# Examples:
+#   - "stylized sci-fi, slightly realistic"
+#   - "cel-shaded cartoon"
+#   - "dark fantasy, painterly"
+#   - "anime-inspired, colorful"
+#   - "realistic military"
+#   - "low-poly retro"
+game_style: ""
+
+# silhouette
+# Body shape and distinctive outline features.
+# IMPORTANT for 3D modeling - helps create recognizable characters.
+# Describe the overall shape someone would see in shadow.
+# Examples:
+#   - "tall, long coat, mechanical arm"
+#   - "short and stocky, bulky armor, large hammer"
+#   - "slim athletic build, flowing cape"
+#   - "hunched posture, oversized backpack"
+#   - "average height, distinctive hat, staff"
+silhouette: ""
+
+# color_palette
+# List of main colors for the character design.
+# Use 2-5 colors for a cohesive design.
+# Can include descriptions like "accents" or "highlights".
+# Examples:
+#   - ["teal", "black", "orange accents"]
+#   - ["deep purple", "gold trim", "white"]
+#   - ["earth tones", "rust red", "leather brown"]
+#   - ["neon pink", "black", "chrome silver"]
+color_palette:
+  - ""
+  # - ""
+  # - ""
+
+# key_props
+# Important items/accessories the character carries.
+# These will appear in prompts as "holding {props}".
+# Include items that define the character's role.
+# Examples:
+#   - ["data tablet", "arm-mounted scanner"]
+#   - ["enchanted staff", "spell book"]
+#   - ["plasma rifle", "tactical backpack"]
+#   - ["blacksmith hammer", "leather apron"]
+key_props:
+  - ""
+  # - ""
+  # - ""
+
+# animation_focus
+# Types of animations planned for 3D rigging.
+# Helps ensure the design supports required movements.
+# Think about what the character needs to DO in the game.
+# Examples:
+#   - ["walk", "idle scanning", "simple attack"]
+#   - ["run", "jump", "combat stance", "casting spell"]
+#   - ["walk", "sit", "talk", "gesture"]
+#   - ["fly", "hover", "land", "attack"]
+animation_focus:
+  - ""
+  # - ""
+  # - ""
+
+# extra_notes
+# Any additional context for prompt generation.
+# Free-form text appended to prompts.
+# Good for:
+#   - Environment context
+#   - Expression/mood
+#   - Specific design requirements
+#   - Things to avoid
+# Examples:
+#   - "Set in a neon-lit cyber-ruin environment, neutral expression, practical gear."
+#   - "Medieval European aesthetic, confident pose, battle-worn armor."
+#   - "Friendly appearance, approachable, no weapons visible."
+extra_notes: ""
+
+
+# ============================================================================
+# TIPS FOR GOOD CHARACTER SPECS
+# ============================================================================
+#
+# 1. BE SPECIFIC: "tall android with trench coat" > "robot character"
+#
+# 2. THINK 3D: Will this design work when converted to 3D?
+#    - Avoid overly complex details that won't translate
+#    - Consider how clothing/armor will deform during animation
+#
+# 3. COLOR WISELY: 2-4 colors usually work best
+#    - Too many colors look chaotic
+#    - Include one "accent" color for visual interest
+#
+# 4. PROPS MATTER: Items define character identity
+#    - A mage without a staff looks like anyone
+#    - Props should be clearly visible, not hidden
+#
+# 5. SILHOUETTE TEST: Would you recognize this character as a shadow?
+#    - Distinctive shapes help recognition
+#    - Avoid generic "human standing" shapes
+#
+# ============================================================================
+
