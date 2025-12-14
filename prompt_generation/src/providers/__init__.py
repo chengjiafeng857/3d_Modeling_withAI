@@ -2,8 +2,8 @@
 #
 # This package contains provider implementations for the Hunyuan 3D API.
 # The provider abstraction allows for different implementations:
-#   - raw_http: Direct HTTP calls with Tencent Cloud signing (default, no SDK)
-#   - sdk: Uses official Tencent Cloud SDK (requires: uv add tencentcloud-sdk-python-ai3d)
+#   - sdk: Uses official Tencent Cloud SDK (default, recommended)
+#   - http: Direct HTTP calls with Tencent Cloud signing (fallback)
 
 from .hunyuan3d_provider import (
     Hunyuan3DProvider,
@@ -52,7 +52,11 @@ __all__ = [
     "JobStatus",
     "ViewImage",
     "VALID_VIEW_TYPES",
-    # Raw HTTP implementation (default)
+    # SDK implementation (default, recommended)
+    "SDKHunyuan3DProvider",
+    "is_sdk_available",
+    "get_sdk_install_instructions",
+    # Raw HTTP implementation (fallback)
     "RawHttpHunyuan3DProvider",
     "TENCENT_SECRET_ID_ENV",
     "TENCENT_SECRET_KEY_ENV",
@@ -63,11 +67,7 @@ __all__ = [
     "HUNYUAN3D_POLYGON_TYPE_ENV",
     "VALID_GENERATE_TYPES",
     "VALID_POLYGON_TYPES",
-    # SDK implementation (optional)
-    "SDKHunyuan3DProvider",
-    "is_sdk_available",
-    "get_sdk_install_instructions",
-    # COS uploader
+    # COS uploader (SDK-based by default)
     "TencentCOSUploader",
     "SDKCOSUploader",
     "get_cos_uploader",
@@ -77,12 +77,12 @@ __all__ = [
 ]
 
 
-def get_provider(provider_type: str = "http") -> type[Hunyuan3DProvider]:
+def get_provider(provider_type: str = "sdk") -> type[Hunyuan3DProvider]:
     """
     Get the appropriate provider class based on type.
     
     Args:
-        provider_type: "http" (default) or "sdk"
+        provider_type: "sdk" (default, recommended) or "http" (fallback)
         
     Returns:
         Provider class to instantiate
@@ -91,14 +91,14 @@ def get_provider(provider_type: str = "http") -> type[Hunyuan3DProvider]:
         ValueError: If provider type is invalid
         ImportError: If SDK provider requested but SDK not installed
     """
-    if provider_type == "http":
-        return RawHttpHunyuan3DProvider
-    elif provider_type == "sdk":
+    if provider_type == "sdk":
         if not is_sdk_available():
             raise ImportError(get_sdk_install_instructions())
         return SDKHunyuan3DProvider
+    elif provider_type == "http":
+        return RawHttpHunyuan3DProvider
     else:
         raise ValueError(
             f"Invalid provider type: {provider_type}. "
-            f"Use 'http' (default) or 'sdk'."
+            f"Use 'sdk' (default) or 'http'."
         )

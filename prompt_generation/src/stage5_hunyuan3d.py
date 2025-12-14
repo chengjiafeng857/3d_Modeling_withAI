@@ -43,6 +43,13 @@ from .providers import (
     get_provider,
     is_sdk_available,
     get_sdk_install_instructions,
+    # Hunyuan 3D settings env vars
+    HUNYUAN3D_ENABLE_PBR_ENV,
+    HUNYUAN3D_FACE_COUNT_ENV,
+    HUNYUAN3D_GENERATE_TYPE_ENV,
+    HUNYUAN3D_POLYGON_TYPE_ENV,
+    VALID_GENERATE_TYPES,
+    VALID_POLYGON_TYPES,
 )
 
 # Re-export env var names for convenience
@@ -65,8 +72,8 @@ __all__ = [
     "VALID_VIEW_TYPES",
 ]
 
-# Valid provider types
-VALID_PROVIDERS = ("http", "sdk")
+# Valid provider types (sdk is default, http is fallback)
+VALID_PROVIDERS = ("sdk", "http")
 
 
 # -----------------------------------------------------------------------------
@@ -210,6 +217,86 @@ def _validate_inputs(
     return provided[0]
 
 
+def _print_request_debug_info(
+    *,
+    prompt: Optional[str],
+    image_url: Optional[str],
+    multi_view_images: list[ViewImage],
+    provider_type: str,
+) -> None:
+    """
+    Print detailed debug information about the 3D generation request.
+    
+    This helps with debugging by showing all parameters being sent to the API.
+    """
+    print("\n" + "=" * 60)
+    print("HUNYUAN 3D REQUEST DEBUG INFO")
+    print("=" * 60)
+    
+    # Provider info
+    print(f"\n[Provider]")
+    print(f"  Type: {provider_type}")
+    print(f"  SDK Available: {is_sdk_available()}")
+    
+    # Input parameters
+    print(f"\n[Input Parameters]")
+    if prompt:
+        display_prompt = prompt[:100] + "..." if len(prompt) > 100 else prompt
+        print(f"  Prompt: {display_prompt}")
+    if image_url:
+        display_url = image_url[:80] + "..." if len(image_url) > 80 else image_url
+        print(f"  ImageUrl: {display_url}")
+    
+    # Multi-view images
+    if multi_view_images:
+        print(f"\n[Multi-View Images] ({len(multi_view_images)} additional views)")
+        for img in multi_view_images:
+            display_url = img.image_url[:60] + "..." if len(img.image_url) > 60 else img.image_url
+            print(f"  {img.view.capitalize()}: {display_url}")
+    else:
+        print(f"\n[Multi-View Images] None")
+    
+    # Environment-based settings
+    print(f"\n[Hunyuan 3D Settings (from env vars)]")
+    
+    enable_pbr = os.environ.get(HUNYUAN3D_ENABLE_PBR_ENV, "")
+    if enable_pbr:
+        print(f"  EnablePBR: {enable_pbr}")
+    else:
+        print(f"  EnablePBR: (not set, default: false)")
+    
+    face_count = os.environ.get(HUNYUAN3D_FACE_COUNT_ENV, "")
+    if face_count:
+        print(f"  FaceCount: {face_count}")
+    else:
+        print(f"  FaceCount: (not set, default: 500000)")
+    
+    generate_type = os.environ.get(HUNYUAN3D_GENERATE_TYPE_ENV, "")
+    if generate_type:
+        print(f"  GenerateType: {generate_type}")
+    else:
+        print(f"  GenerateType: (not set, default: Normal)")
+        print(f"    Valid options: {', '.join(VALID_GENERATE_TYPES)}")
+    
+    polygon_type = os.environ.get(HUNYUAN3D_POLYGON_TYPE_ENV, "")
+    if polygon_type:
+        print(f"  PolygonType: {polygon_type}")
+    else:
+        print(f"  PolygonType: (not set, default: triangle)")
+        print(f"    Valid options: {', '.join(VALID_POLYGON_TYPES)}")
+        print(f"    Note: Only effective for LowPoly mode")
+    
+    # COS settings (if relevant)
+    cos_bucket = os.environ.get(TENCENT_COS_BUCKET_ENV, "")
+    cos_region = os.environ.get(TENCENT_COS_REGION_ENV, "")
+    if cos_bucket or cos_region:
+        print(f"\n[COS Settings]")
+        print(f"  Bucket: {cos_bucket or '(not set)'}")
+        print(f"  Region: {cos_region or '(not set)'}")
+    
+    print("\n" + "=" * 60 + "\n")
+
+
 # -----------------------------------------------------------------------------
 # MAIN ORCHESTRATION FUNCTION
 # -----------------------------------------------------------------------------
@@ -226,7 +313,7 @@ def generate_3d_model(
     poll_interval: int = DEFAULT_POLL_INTERVAL,
     timeout: int = DEFAULT_TIMEOUT,
     verbose: bool = True,
-    provider_type: str = "http",
+    provider_type: str = "sdk",
 ) -> Hunyuan3DResult:
     """
     Generate a 3D model using the Hunyuan 3D API.
@@ -250,7 +337,7 @@ def generate_3d_model(
         poll_interval: Initial seconds between status polls
         timeout: Maximum seconds to wait for completion
         verbose: Print progress messages
-        provider_type: "http" (default, no SDK) or "sdk" (requires SDK)
+        provider_type: "sdk" (default, recommended) or "http" (fallback)
         
     Returns:
         Hunyuan3DResult with paths to downloaded files
@@ -328,7 +415,14 @@ def generate_3d_model(
                 print(f"  ✓ {view_name.capitalize()}: {view_url[:60]}...")
     
     # Step 3: Create provider and submit job
+    # Print detailed debug info about the request
     if verbose:
+        _print_request_debug_info(
+            prompt=prompt,
+            image_url=final_image_url,
+            multi_view_images=multi_view_images,
+            provider_type=provider_type,
+        )
         print("Submitting job to Hunyuan 3D API...")
         if multi_view_images:
             print(f"  (with {len(multi_view_images)} additional view(s))")

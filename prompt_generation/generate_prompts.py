@@ -805,9 +805,9 @@ def hunyuan3d_command(
         str,
         typer.Option(
             "--provider",
-            help="API provider: 'http' (default, no SDK) or 'sdk' (requires SDK)",
+            help="API provider: 'sdk' (default) or 'http' (fallback)",
         ),
-    ] = "http",
+    ] = "sdk",
 ) -> None:
     """
     Generate 3D model using Hunyuan 3D API (Stage 5).
@@ -829,8 +829,8 @@ def hunyuan3d_command(
     
     \b
     Provider options:
-      --provider http  Raw HTTP with TC3 signing (default, no SDK needed)
-      --provider sdk   Tencent Cloud SDK (requires: uv add tencentcloud-sdk-python-ai3d)
+      --provider sdk   Tencent Cloud SDK (default, recommended)
+      --provider http  Raw HTTP with TC3 signing (fallback)
     
     \b
     Required environment variables:
@@ -860,8 +860,8 @@ def hunyuan3d_command(
         --left-view left.png --right-view right.png --back-view back.png
     
     \b
-    Example (using SDK provider):
-      uv run generate_prompts.py hunyuan3d --prompt "A robot" --provider sdk
+    Example (using HTTP fallback):
+      uv run generate_prompts.py hunyuan3d --prompt "A robot" --provider http
     """
     # Step 1: Determine input mode
     final_prompt: Optional[str] = None
@@ -930,7 +930,7 @@ def hunyuan3d_command(
     if provider == "sdk" and not is_sdk_available():
         print("Error: SDK provider requested but SDK not installed.", file=sys.stderr)
         print("Install with: uv add tencentcloud-sdk-python-ai3d", file=sys.stderr)
-        print("Or use --provider http (default) which doesn't require SDK.", file=sys.stderr)
+        print("Or use --provider http as a fallback.", file=sys.stderr)
         raise typer.Exit(code=1)
     
     # Step 3: Check environment variables

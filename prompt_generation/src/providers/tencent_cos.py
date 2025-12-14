@@ -4,8 +4,8 @@
 # that can be used with the Hunyuan 3D API.
 #
 # Two implementations are provided:
-#   - TencentCOSUploader: Uses raw HTTP requests with manual signing (legacy)
-#   - SDKCOSUploader: Uses official cos-python-sdk-v5 (recommended)
+#   - SDKCOSUploader: Uses official cos-python-sdk-v5 (default, recommended)
+#   - TencentCOSUploader: Uses raw HTTP requests with manual signing (fallback)
 #
 # Reference: https://cloud.tencent.com/document/api/436/7751
 #
