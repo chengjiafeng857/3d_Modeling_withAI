@@ -58,6 +58,16 @@ from src.stage4_image_generation import (                       # Stage 4: Image
     save_generated_images,
     GEMINI_API_KEY_ENV,
 )
+from src.stage5_hunyuan3d import (                              # Stage 5: Hunyuan 3D
+    generate_3d_model,
+    check_required_env_vars,
+    get_env_var_help,
+    TENCENT_SECRET_ID_ENV,
+    TENCENT_SECRET_KEY_ENV,
+    VALID_PROVIDERS,
+    is_sdk_available,
+)
+from src.providers import TENCENT_COS_BUCKET_ENV, TENCENT_COS_REGION_ENV
 
 # file_utils.py: File output utilities
 from src.file_utils import write_prompts, print_prompts_to_stdout
@@ -692,6 +702,299 @@ def generate_all_command(
     print("PIPELINE COMPLETE!")
     print(f"{'='*60}")
     print(f"  Output: {run_output_dir}/")
+    print("\nDone!")
+
+
+# -----------------------------------------------------------------------------
+# COMMAND: hunyuan3d (Stage 5 - 3D Model Generation)
+# -----------------------------------------------------------------------------
+
+@app.command("hunyuan3d")
+def hunyuan3d_command(
+    input_file: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--input", "-i",
+            help="Path to character spec file (YAML or JSON) - uses name for prompt",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+        ),
+    ] = None,
+    prompt: Annotated[
+        Optional[str],
+        typer.Option(
+            "--prompt", "-p",
+            help="Text prompt for 3D generation (alternative to config)",
+        ),
+    ] = None,
+    image: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--image",
+            help="Path to local image to convert to 3D",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+        ),
+    ] = None,
+    image_url: Annotated[
+        Optional[str],
+        typer.Option(
+            "--image-url",
+            help="URL of image to convert to 3D",
+        ),
+    ] = None,
+    left_view: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--left-view",
+            help="Path to left view image (for multi-view 3D reconstruction)",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+        ),
+    ] = None,
+    right_view: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--right-view",
+            help="Path to right view image (for multi-view 3D reconstruction)",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+        ),
+    ] = None,
+    back_view: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--back-view",
+            help="Path to back view image (for multi-view 3D reconstruction)",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+        ),
+    ] = None,
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output-dir", "-o",
+            help="Base output directory for 3D models",
+        ),
+    ] = Path("output/hunyuan3d"),
+    timeout: Annotated[
+        int,
+        typer.Option(
+            "--timeout",
+            help="Maximum seconds to wait for job completion",
+        ),
+    ] = 600,
+    poll_interval: Annotated[
+        int,
+        typer.Option(
+            "--poll-interval",
+            help="Initial seconds between status polls",
+        ),
+    ] = 10,
+    provider: Annotated[
+        str,
+        typer.Option(
+            "--provider",
+            help="API provider: 'http' (default, no SDK) or 'sdk' (requires SDK)",
+        ),
+    ] = "http",
+) -> None:
+    """
+    Generate 3D model using Hunyuan 3D API (Stage 5).
+    
+    Converts a text prompt or image to a 3D model (.obj format).
+    
+    \b
+    Input modes (use exactly ONE):
+      --input/-i    Use character spec name as prompt
+      --prompt/-p   Direct text prompt
+      --image       Local image file (uploads to COS) - front view
+      --image-url   Remote image URL
+    
+    \b
+    Multi-view options (optional, use with --image or --image-url):
+      --left-view   Left view image for better 3D reconstruction
+      --right-view  Right view image for better 3D reconstruction
+      --back-view   Back view image for better 3D reconstruction
+    
+    \b
+    Provider options:
+      --provider http  Raw HTTP with TC3 signing (default, no SDK needed)
+      --provider sdk   Tencent Cloud SDK (requires: uv add tencentcloud-sdk-python-ai3d)
+    
+    \b
+    Required environment variables:
+      TENCENT_SECRET_ID   - Tencent Cloud SecretId
+      TENCENT_SECRET_KEY  - Tencent Cloud SecretKey
+    
+    \b
+    For --image mode (or multi-view), also set:
+      TENCENT_COS_BUCKET  - COS bucket name
+      TENCENT_COS_REGION  - COS region (e.g., ap-guangzhou)
+    
+    \b
+    Example (from character spec):
+      uv run generate_prompts.py hunyuan3d -i configs/aethel.yaml
+      
+    \b
+    Example (direct prompt):
+      uv run generate_prompts.py hunyuan3d --prompt "A cute panda figurine"
+      
+    \b
+    Example (from image):
+      uv run generate_prompts.py hunyuan3d --image output/images/tpose_front.png
+    
+    \b
+    Example (multi-view for better 3D reconstruction):
+      uv run generate_prompts.py hunyuan3d --image front.png \\
+        --left-view left.png --right-view right.png --back-view back.png
+    
+    \b
+    Example (using SDK provider):
+      uv run generate_prompts.py hunyuan3d --prompt "A robot" --provider sdk
+    """
+    # Step 1: Determine input mode
+    final_prompt: Optional[str] = None
+    final_image: Optional[Path] = None
+    final_image_url: Optional[str] = None
+    
+    # Check for multi-view images
+    has_multi_view = any([left_view, right_view, back_view])
+    
+    # Count how many inputs were provided
+    input_count = sum([
+        input_file is not None,
+        prompt is not None,
+        image is not None,
+        image_url is not None,
+    ])
+    
+    if input_count == 0:
+        print("Error: Must provide exactly ONE input mode:", file=sys.stderr)
+        print("  --input/-i     Character spec file", file=sys.stderr)
+        print("  --prompt/-p    Direct text prompt", file=sys.stderr)
+        print("  --image        Local image file", file=sys.stderr)
+        print("  --image-url    Remote image URL", file=sys.stderr)
+        raise typer.Exit(code=1)
+    
+    if input_count > 1:
+        print("Error: Provide only ONE input mode.", file=sys.stderr)
+        raise typer.Exit(code=1)
+    
+    # Validate multi-view usage (only with image or image_url)
+    if has_multi_view and not (image or image_url):
+        print("Error: Multi-view options (--left-view, --right-view, --back-view)", file=sys.stderr)
+        print("       can only be used with --image or --image-url.", file=sys.stderr)
+        raise typer.Exit(code=1)
+    
+    # Resolve the input
+    if input_file:
+        # Load character spec and use name + role as prompt
+        try:
+            spec = load_character_spec(input_file)
+            # Build a 3D-focused prompt from the spec
+            final_prompt = (
+                f"3D model of {spec.name}, {spec.role}. "
+                f"Style: {spec.game_style}. "
+                f"Silhouette: {spec.silhouette}. "
+                f"Colors: {', '.join(spec.color_palette)}."
+            )
+            print(f"Character: {spec.name} ({spec.role})")
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            raise typer.Exit(code=1)
+    elif prompt:
+        final_prompt = prompt
+    elif image:
+        final_image = image
+    elif image_url:
+        final_image_url = image_url
+    
+    # Step 2: Validate provider option
+    if provider not in VALID_PROVIDERS:
+        print(f"Error: Invalid provider '{provider}'.", file=sys.stderr)
+        print(f"Valid options: {', '.join(VALID_PROVIDERS)}", file=sys.stderr)
+        raise typer.Exit(code=1)
+    
+    # Check SDK availability if SDK provider requested
+    if provider == "sdk" and not is_sdk_available():
+        print("Error: SDK provider requested but SDK not installed.", file=sys.stderr)
+        print("Install with: uv add tencentcloud-sdk-python-ai3d", file=sys.stderr)
+        print("Or use --provider http (default) which doesn't require SDK.", file=sys.stderr)
+        raise typer.Exit(code=1)
+    
+    # Step 3: Check environment variables
+    # COS is needed for local image uploads (main or multi-view)
+    include_cos = final_image is not None or has_multi_view
+    missing_vars = check_required_env_vars(include_cos=include_cos)
+    
+    if missing_vars:
+        print(f"Error: Missing required environment variables:", file=sys.stderr)
+        for var in missing_vars:
+            print(f"  - {var}", file=sys.stderr)
+        print(get_env_var_help(), file=sys.stderr)
+        raise typer.Exit(code=1)
+    
+    # Step 4: Create timestamped output directory
+    run_output_dir = create_timestamped_output_dir(output_dir)
+    print(f"\nOutput directory: {run_output_dir}/")
+    
+    # Step 5: Generate 3D model
+    print(f"\n{'='*60}")
+    print(f"STAGE 5: Generating 3D model with Hunyuan API ({provider})...")
+    print(f"{'='*60}\n")
+    
+    try:
+        result = generate_3d_model(
+            prompt=final_prompt,
+            image=final_image,
+            image_url=final_image_url,
+            left_view=left_view,
+            right_view=right_view,
+            back_view=back_view,
+            output_dir=run_output_dir,
+            timeout=timeout,
+            poll_interval=poll_interval,
+            verbose=True,
+            provider_type=provider,
+        )
+        
+        if result.status == "DONE" and result.obj_path:
+            print(f"\n{'='*60}")
+            print("3D MODEL GENERATION COMPLETE!")
+            print(f"{'='*60}")
+            print(f"  Status: {result.status}")
+            print(f"  Time: {result.elapsed_seconds:.1f}s")
+            print(f"  Files: {len(result.all_files)}")
+            print(f"\n  Main OBJ: {result.obj_path}")
+            print(f"  Metadata: {result.metadata_path}")
+        elif result.status == "FAIL":
+            print(f"\nError: Job failed: {result.error_message}", file=sys.stderr)
+            raise typer.Exit(code=1)
+        else:
+            print(f"\nWarning: Job completed but no .obj file found.", file=sys.stderr)
+            print(f"  Status: {result.status}")
+            print(f"  Files: {[str(f) for f in result.all_files]}")
+            
+    except TimeoutError as e:
+        print(f"\nError: {e}", file=sys.stderr)
+        print("Try increasing --timeout value.", file=sys.stderr)
+        raise typer.Exit(code=1)
+        
+    except Exception as e:
+        print(f"\nError generating 3D model: {e}", file=sys.stderr)
+        raise typer.Exit(code=1)
+    
     print("\nDone!")
 
 

@@ -60,10 +60,11 @@ def format_key_props(props: list[str]) -> str:
         
     Returns:
         A natural phrase like "a data tablet and a scanner"
+        Returns empty string if no props.
         
     Examples:
         >>> format_key_props([])
-        "no specific props"
+        ""
         >>> format_key_props(["sword"])
         "a sword"
         >>> format_key_props(["sword", "shield"])
@@ -71,9 +72,9 @@ def format_key_props(props: list[str]) -> str:
         >>> format_key_props(["sword", "shield", "helmet"])
         "a sword, a shield, and a helmet"
     """
-    # Case 1: Empty list
+    # Case 1: Empty list - return empty string to allow conditional checks
     if not props:
-        return "no specific props"
+        return ""
     
     # Case 2: Single item - just add "a"
     if len(props) == 1:
@@ -118,11 +119,12 @@ def format_extra_notes(notes: Optional[str]) -> str:
         notes: Optional string with extra notes
         
     Returns:
-        The notes string, or "None" if notes is None/empty
+        The notes string, or empty string if notes is None/empty
     """
     # In Python, empty strings and None are both "falsy"
     # So "if notes" handles both cases
-    return notes if notes else "None"
+    # Return empty string to allow conditional checks in calling code
+    return notes if notes else ""
 
 
 # -----------------------------------------------------------------------------
@@ -159,7 +161,13 @@ def generate_base_2d_full_body(spec: CharacterSpec) -> str:
         f"{spec.game_style}, "                            # STYLE: Visual style
         f"{spec.silhouette}, "                            # SHAPE: Body description
         f"color palette {color_str}, "                    # COLORS: Main colors
-        f"holding {props_str}, "                          # PROPS: Items held
+    )
+    
+    # Add props if present
+    if props_str:
+        prompt += f"holding {props_str}, "
+    
+    prompt += (
         f"front view, "                                   # ANGLE: Camera angle
         f"neutral pose, "                                 # POSE: Standing pose
         f"simple background, "                            # BG: Clean background

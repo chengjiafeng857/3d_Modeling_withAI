@@ -10,10 +10,13 @@ A clean, teachable Python CLI tool that generates structured text prompts for th
 │                                                                              │
 │   TEXT SPEC  →  BASE PROMPTS  →  LLM REFINE  →  CHECKLIST  →  IMAGE GEN    │
 │   (YAML/JSON)    (Stage 1)       (Stage 2)      (Stage 3)     (Stage 4)    │
+│                                                                     ↓        │
+│                                                               HUNYUAN 3D    │
+│                                                               (Stage 5)     │
 │                                                                              │
 │   Stage 2: Uses OpenAI GPT-5 (with web search tool) to refine prompts       │
 │   Stage 4: Generates T-pose images (front/side/back) via Gemini API         │
-│   Then manually: Upload to Hunyuan.3D → Download .fbx/.obj                  │
+│   Stage 5: Converts images/prompts to 3D models via Hunyuan API → .obj      │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -39,6 +42,11 @@ uv run generate_prompts.py refine -i configs/aethel.yaml --web-search
 # Generate T-pose images (Stage 4)
 uv run generate_prompts.py images -i configs/aethel.yaml
 
+# Generate 3D model with Hunyuan API (Stage 5) - NEW!
+uv run generate_prompts.py hunyuan3d -i configs/aethel.yaml
+uv run generate_prompts.py hunyuan3d --image output/images/tpose_front.png
+uv run generate_prompts.py hunyuan3d --prompt "A cute panda figurine"
+
 # Run FULL pipeline (all stages)
 uv run generate_prompts.py all -i configs/aethel.yaml
 
@@ -58,8 +66,25 @@ cp .env.example .env
 
 Edit `.env`:
 ```env
+# OpenAI (Stage 2 - LLM Refinement)
 OPENAI_API_KEY=sk-your-openai-key-here
+
+# Google Gemini (Stage 4 - Image Generation)
 GEMINI_API_KEY=your-gemini-key-here
+
+# Tencent Cloud (Stage 5 - Hunyuan 3D) - Required
+TENCENT_SECRET_ID=your-tencent-secret-id
+TENCENT_SECRET_KEY=your-tencent-secret-key
+
+# Tencent COS (Stage 5 - for --image uploads) - Required for image mode
+TENCENT_COS_BUCKET=your-bucket-1250000000
+TENCENT_COS_REGION=ap-guangzhou
+
+# Hunyuan 3D Settings (Stage 5 - Optional)
+HUNYUAN3D_ENABLE_PBR=false
+HUNYUAN3D_FACE_COUNT=500000
+HUNYUAN3D_GENERATE_TYPE=Normal
+HUNYUAN3D_POLYGON_TYPE=triangle
 ```
 
 > ⚠️ Never commit `.env` to version control! It's already in `.gitignore`.
@@ -69,6 +94,10 @@ GEMINI_API_KEY=your-gemini-key-here
 ```bash
 export OPENAI_API_KEY='sk-...'
 export GEMINI_API_KEY='AI...'
+export TENCENT_SECRET_ID='your-id'
+export TENCENT_SECRET_KEY='your-key'
+export TENCENT_COS_BUCKET='bucket-1250000000'
+export TENCENT_COS_REGION='ap-guangzhou'
 ```
 
 ### Required Keys
@@ -77,6 +106,27 @@ export GEMINI_API_KEY='AI...'
 |-------|---------|-------------|---------|
 | Stage 2 (refine) | `OPENAI_API_KEY` | OpenAI GPT-5 with web search | [platform.openai.com](https://platform.openai.com/api-keys) |
 | Stage 4 (images) | `GEMINI_API_KEY` | Google Gemini image gen | [aistudio.google.com](https://aistudio.google.com/apikey) |
+| Stage 5 (hunyuan3d) | `TENCENT_SECRET_ID` | Tencent Cloud credentials | [console.cloud.tencent.com/cam/capi](https://console.cloud.tencent.com/cam/capi) |
+| Stage 5 (hunyuan3d) | `TENCENT_SECRET_KEY` | Tencent Cloud credentials | [console.cloud.tencent.com/cam/capi](https://console.cloud.tencent.com/cam/capi) |
+| Stage 5 (--image) | `TENCENT_COS_BUCKET` | COS bucket for image uploads | [console.cloud.tencent.com/cos](https://console.cloud.tencent.com/cos) |
+| Stage 5 (--image) | `TENCENT_COS_REGION` | COS region (e.g., ap-guangzhou) | See bucket settings |
+
+### Hunyuan 3D Settings (Optional)
+
+These environment variables control the Hunyuan 3D generation settings:
+
+| Variable | Values | Default | Description |
+|----------|--------|---------|-------------|
+| `HUNYUAN3D_ENABLE_PBR` | `true`, `false` | `false` | Enable PBR (Physically Based Rendering) materials |
+| `HUNYUAN3D_FACE_COUNT` | `40000` - `1500000` | `500000` | Polygon face count for the generated model |
+| `HUNYUAN3D_GENERATE_TYPE` | `Normal`, `LowPoly`, `Geometry`, `Sketch` | `Normal` | Generation mode (see below) |
+| `HUNYUAN3D_POLYGON_TYPE` | `triangle`, `quadrilateral` | `triangle` | Polygon type (LowPoly mode only) |
+
+**GenerateType Options:**
+- **Normal** - Textured geometry model (default)
+- **LowPoly** - Intelligently reduced faces for game-ready models
+- **Geometry** - White model without texture (for sculpting)
+- **Sketch** - Generate from sketch/line art (can combine prompt + image)
 
 ### OpenAI Models Supported
 
@@ -104,7 +154,18 @@ prompt_generation/
 │   ├── stage2_llm_refiner.py      # Stage 2b: LLM-refined prompts (OpenAI)
 │   ├── stage3_common_prompts.py   # Stage 3: Checklist and design notes
 │   ├── stage4_image_generation.py # Stage 4: Gemini image generation
+│   ├── stage5_hunyuan3d.py        # Stage 5: Hunyuan 3D orchestration
+│   ├── providers/                 # Hunyuan 3D API providers
+│   │   ├── __init__.py            # Provider factory + exports
+│   │   ├── hunyuan3d_provider.py  # Provider abstraction (ABC)
+│   │   ├── raw_http_hunyuan3d.py  # Raw HTTP + TC3 signing
+│   │   ├── sdk_hunyuan3d.py       # Tencent Cloud SDK provider
+│   │   └── tencent_cos.py         # COS image uploader (HTTP + SDK)
 │   └── file_utils.py              # File output utilities
+├── tests/                         # pytest tests
+│   ├── conftest.py                # Test fixtures
+│   ├── test_hunyuan3d_provider.py # Provider tests
+│   └── test_stage5_hunyuan3d.py   # Orchestration tests
 ├── configs/
 │   ├── _template.yaml           # Character spec template with docs
 │   └── aethel.yaml              # Example character spec
@@ -123,6 +184,8 @@ prompt_generation/
 | `stage2_llm_refiner.py` | **Stage 2b** | **LLM-refined prompts via OpenAI API** |
 | `stage3_common_prompts.py` | Stage 3 | Checklist and design notes for humans |
 | `stage4_image_generation.py` | Stage 4 | Gemini API image generation (3 views) |
+| `stage5_hunyuan3d.py` | **Stage 5** | **Hunyuan 3D API → local .obj** |
+| `providers/` | Stage 5 | Provider abstraction + implementations |
 | `file_utils.py` | Output | File writing and path resolution |
 
 ## Output Structure
@@ -150,6 +213,13 @@ output/
 │       ├── aethel_tpose_front_v1.png
 │       ├── aethel_tpose_side_v1.png
 │       └── aethel_tpose_back_v1.png
+├── hunyuan3d/                        # Stage 5: 3D model output
+│   └── 2024-12-09_16-00-12/          # Timestamped run
+│       ├── model.obj                 # Main 3D model
+│       ├── material.mtl              # Material file
+│       ├── texture.png               # Textures (if any)
+│       ├── preview.png               # Preview image from API
+│       └── metadata.json             # Job info and file manifest
 └── 2024-12-09_16-00-12/              # Run 2 (different timestamp)
     └── ...
 ```
@@ -191,6 +261,65 @@ uv run generate_prompts.py images -i configs/aethel.yaml --views front,side
 # Preview prompts (no API calls)
 uv run generate_prompts.py images -i configs/aethel.yaml --prompts-only
 ```
+
+### `hunyuan3d` - Generate 3D Model (Stage 5) ⭐ NEW
+
+Convert text prompts or images to 3D models using the Hunyuan 3D API.
+
+```bash
+# From character spec (uses name + role as prompt)
+uv run generate_prompts.py hunyuan3d -i configs/aethel.yaml
+
+# Direct text prompt
+uv run generate_prompts.py hunyuan3d --prompt "A cute panda figurine"
+
+# From local image (uploads to Tencent COS)
+uv run generate_prompts.py hunyuan3d --image output/images/tpose_front.png
+
+# From remote image URL
+uv run generate_prompts.py hunyuan3d --image-url "https://example.com/image.png"
+
+# Multi-view for better 3D reconstruction
+uv run generate_prompts.py hunyuan3d --image front.png \
+  --left-view left.png --right-view right.png --back-view back.png
+
+# With custom timeout (default: 600 seconds)
+uv run generate_prompts.py hunyuan3d --prompt "A robot" --timeout 900
+
+# Using Tencent Cloud SDK instead of raw HTTP (optional)
+uv run generate_prompts.py hunyuan3d --prompt "A robot" --provider sdk
+```
+
+**Input Modes** (use exactly ONE):
+- `--input/-i` - Character spec file (uses name + role as prompt)
+- `--prompt/-p` - Direct text description
+- `--image` - Local image file (front view, requires COS credentials)
+- `--image-url` - Remote image URL
+
+**Multi-View Options** (optional, use with `--image` or `--image-url`):
+- `--left-view` - Left view image for better 3D reconstruction
+- `--right-view` - Right view image for better 3D reconstruction
+- `--back-view` - Back view image for better 3D reconstruction
+
+**Provider Options:**
+- `--provider http` - Raw HTTP with TC3 signing (default, no SDK needed)
+- `--provider sdk` - Tencent Cloud SDK (requires: `uv add tencentcloud-sdk-python-ai3d`)
+
+**Generation Settings** (via environment variables):
+- `HUNYUAN3D_ENABLE_PBR` - Enable PBR materials (`true`/`false`, default: `false`)
+- `HUNYUAN3D_FACE_COUNT` - Polygon count (`40000`-`1500000`, default: `500000`)
+- `HUNYUAN3D_GENERATE_TYPE` - Generation mode:
+  - `Normal` - Textured geometry model (default)
+  - `LowPoly` - Intelligently reduced faces
+  - `Geometry` - White model without texture
+  - `Sketch` - Generate from sketch/line art
+- `HUNYUAN3D_POLYGON_TYPE` - For LowPoly mode: `triangle` (default) or `quadrilateral`
+
+**Output:**
+- Downloads and extracts the 3D model (`.obj`, `.glb`, `.mtl`, textures)
+- Identifies the main `.obj` file (largest by size)
+- Creates `metadata.json` with job info and file manifest
+- Prints the path to the main `.obj` file
 
 ### `all` - Full Pipeline (All Stages)
 
@@ -295,16 +424,40 @@ Generates actual T-pose images using Gemini 3 Pro Image Preview:
 - Side view  
 - Back view
 
+### Stage 5: Hunyuan 3D Model Generation ⭐ NEW
+
+**Fully automated** 2D → 3D conversion using the Hunyuan 3D API:
+
+1. **Upload** - Upload local images to Tencent COS (if using `--image`)
+2. **Submit** - Send prompt or image(s) to Hunyuan 3D API
+3. **Poll** - Wait for job completion with exponential backoff
+4. **Download** - Fetch the generated 3D model (ZIP with OBJ/GLB/MTL/textures)
+5. **Extract** - Unpack files and identify the main `.obj`
+6. **Metadata** - Write `metadata.json` with job info
+
+**Features:**
+- **Multi-view support** - Provide left/right/back views for better 3D reconstruction
+- **Configurable settings** - Control PBR materials, polygon count, generation mode
+- **Multiple providers** - Raw HTTP (default) or Tencent Cloud SDK
+- **Automatic COS upload** - Local images are uploaded via SDK for reliability
+
+**Technical Details:**
+- Uses raw HTTP with TC3-HMAC-SHA256 authentication (or optional SDK)
+- Local images are uploaded to Tencent COS via SDK (public-read ACL)
+- Supports text prompts, single image, or multi-view images
+- Automatic retry with exponential backoff
+- Configurable timeout (default: 10 minutes)
+
 ## Workflow
 
 1. **Define Character** → Create YAML spec in `configs/`
 2. **Refine Prompts** → Run `refine` command with OpenAI
 3. **Generate Images** → Run `images` command with Gemini
 4. **Validate** → Use `2d_refinement_criteria` checklist
-5. **Convert to 3D** → Upload validated T-pose to Hunyuan.3D
-6. **Download Assets** → Get .fbx/.obj for further pipeline
+5. **Convert to 3D** → Run `hunyuan3d` command with validated T-pose ← **Automated!**
+6. **Use Model** → Local `.obj` ready for import into Blender, Unity, etc.
 
-Or run `all` to do everything in one command!
+Or run `all` to do prompts + images in one command, then `hunyuan3d` to convert!
 
 ## Code Design (For Learners)
 

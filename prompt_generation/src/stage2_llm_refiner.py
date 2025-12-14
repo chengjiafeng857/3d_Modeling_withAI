@@ -16,7 +16,7 @@
 #
 # API OPTIONS:
 #   Responses API (recommended): Uses GPT-5 with web_search tool
-#      - models: "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4.1"
+#      - models: "gpt-5.2", "gpt-5.2-mini", "gpt-5.2-nano", "gpt-4.1"
 #      - web search: tools=[{"type": "web_search"}]
 #   
 #   See: https://platform.openai.com/docs/guides/tools-web-search
@@ -63,7 +63,7 @@ OPENAI_API_KEY_ENV = "OPENAI_API_KEY"
 # =============================================================================
 
 # Default model for Responses API (GPT-5 with reasoning)
-DEFAULT_MODEL = "gpt-5"
+DEFAULT_MODEL = "gpt-5.2"
 
 # Whether to use Responses API (True) or Chat Completions (False)
 # Responses API is recommended for GPT-5 models with web_search tool
@@ -293,6 +293,9 @@ def call_openai_responses_api(
         model=model,
         input=full_input,
         tools=tools,
+        reasoning={
+        "effort": "high"
+        }
     )
     
     # Extract the response text
