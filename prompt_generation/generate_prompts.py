@@ -56,6 +56,9 @@ from src.stage4_image_generation import (                       # Stage 4: Image
     generate_tpose_images,
     generate_image_prompts_only,
     save_generated_images,
+    edit_image_with_gemini,
+    regenerate_single_view,
+    GeneratedImage,
     GEMINI_API_KEY_ENV,
 )
 from src.stage5_hunyuan3d import (                              # Stage 5: Hunyuan 3D
@@ -603,26 +606,62 @@ def generate_all_command(
             help="Skip image generation (only generate prompts)",
         ),
     ] = False,
+    skip_3d: Annotated[
+        bool,
+        typer.Option(
+            "--skip-3d",
+            help="Skip 3D model generation (Stage 5)",
+        ),
+    ] = False,
+    auto_3d: Annotated[
+        bool,
+        typer.Option(
+            "--auto-3d",
+            help="Skip confirmation before 3D generation (for automation)",
+        ),
+    ] = False,
+    provider_3d: Annotated[
+        str,
+        typer.Option(
+            "--provider-3d",
+            help="Hunyuan 3D provider: 'sdk' (default) or 'http'",
+        ),
+    ] = "sdk",
+    timeout_3d: Annotated[
+        int,
+        typer.Option(
+            "--timeout-3d",
+            help="Timeout in seconds for 3D generation",
+        ),
+    ] = 600,
 ) -> None:
     """
-    Run the full pipeline (Stages 1-4).
+    Run the full pipeline (Stages 1-5).
     
-    Generates static prompts, refines with LLM, and creates T-pose images.
+    Generates static prompts, refines with LLM, creates T-pose images,
+    and generates a 3D model from the front view image.
+    
+    After Stage 4 (image generation), you'll be prompted to review the images
+    before proceeding to 3D generation. Use --auto-3d to skip this confirmation.
     
     \b
     Required API keys:
       - OPENAI_API_KEY: For LLM refinement (Stage 2)
       - GEMINI_API_KEY: For image generation (Stage 4)
+      - TENCENT_SECRET_ID/KEY: For 3D generation (Stage 5)
+      - TENCENT_COS_BUCKET/REGION: For image upload to COS (Stage 5)
     
     \b
-    Example (full pipeline):
-      export OPENAI_API_KEY='your-openai-key'
-      export GEMINI_API_KEY='your-gemini-key'
+    Example (full pipeline with review):
       uv run generate_prompts.py all -i configs/aethel.yaml -v v1
     
     \b
-    Example (skip refinement):
-      uv run generate_prompts.py all -i configs/aethel.yaml --skip-refine
+    Example (automated, no confirmation):
+      uv run generate_prompts.py all -i configs/aethel.yaml --auto-3d
+    
+    \b
+    Example (skip 3D generation):
+      uv run generate_prompts.py all -i configs/aethel.yaml --skip-3d
     """
     # Step 1: Load spec
     print(f"Loading character spec from: {input_file}")
@@ -676,6 +715,8 @@ def generate_all_command(
         print("\n(LLM refinement skipped)")
     
     # Step 4: Generate images (Stage 4)
+    front_image_path: Optional[Path] = None
+    
     if not skip_images:
         print(f"\n{'='*60}")
         print("STAGE 4: Generating T-pose images...")
@@ -692,11 +733,227 @@ def generate_all_command(
                 images = generate_tpose_images(spec, version, gemini_key)
                 saved_image_paths = save_generated_images(images, spec, images_dir, version)
                 print(f"Generated {len(saved_image_paths)} images")
+                
+                # Find the front view image for Stage 5
+                for img_path in saved_image_paths:
+                    if "front" in img_path.name.lower():
+                        front_image_path = img_path
+                        break
+                
             except Exception as e:
                 print(f"Warning: Image generation failed: {e}")
                 print("Prompts were still generated successfully.")
     else:
         print("\n(Image generation skipped)")
+    
+    # Step 5: Generate 3D model (Stage 5)
+    if not skip_3d:
+        # Human-in-the-loop: Ask user to review images before 3D generation
+        proceed_with_3d = True
+        
+        if front_image_path and front_image_path.exists() and not auto_3d:
+            # Loop for regeneration options
+            while True:
+                print(f"\n{'='*60}")
+                print("REVIEW GENERATED IMAGES")
+                print(f"{'='*60}")
+                print(f"\n📁 Images saved to: {images_dir}/")
+                print(f"\n📷 Generated images:")
+                if 'saved_image_paths' in dir() and saved_image_paths:
+                    for img_path in saved_image_paths:
+                        marker = "→" if img_path == front_image_path else " "
+                        print(f"  {marker} {img_path.name}")
+                print(f"\n🎯 Front image for 3D: {front_image_path.name}")
+                print(f"\n💡 Please review the generated images before proceeding.")
+                print(f"   Open the images folder to check quality and accuracy.")
+                
+                # Prompt for confirmation
+                print()
+                proceed_with_3d = typer.confirm(
+                    "Proceed with 3D model generation?",
+                    default=True,
+                )
+                
+                if proceed_with_3d:
+                    break  # User approved, proceed with 3D
+                
+                # User declined - offer regeneration options
+                print(f"\n{'='*60}")
+                print("REGENERATION OPTIONS")
+                print(f"{'='*60}")
+                print("\nThe front image will be used for 3D model generation.")
+                print("Choose how to proceed:\n")
+                print("  [1] Regenerate front image entirely (new generation)")
+                print("  [2] Modify front image with Gemini (edit with text prompt)")
+                print("  [3] Skip 3D generation (exit)")
+                
+                choice = typer.prompt(
+                    "\nYour choice",
+                    type=str,
+                    default="3",
+                )
+                
+                if choice == "1":
+                    # Regenerate front image entirely
+                    print(f"\n{'='*60}")
+                    print("REGENERATING FRONT IMAGE")
+                    print(f"{'='*60}")
+                    
+                    gemini_key = os.environ.get(GEMINI_API_KEY_ENV)
+                    if not gemini_key:
+                        print(f"\nError: {GEMINI_API_KEY_ENV} not set.")
+                        continue
+                    
+                    try:
+                        new_image = regenerate_single_view(
+                            spec=spec,
+                            view="front",
+                            version=version,
+                            api_key=gemini_key,
+                        )
+                        
+                        # Save the new image, overwriting the old one
+                        new_path = images_dir / new_image.get_filename(spec.name, version)
+                        new_path.write_bytes(new_image.image_data)
+                        front_image_path = new_path
+                        
+                        # Update saved_image_paths if it exists
+                        if 'saved_image_paths' in dir() and saved_image_paths:
+                            for i, p in enumerate(saved_image_paths):
+                                if "front" in p.name.lower():
+                                    saved_image_paths[i] = new_path
+                                    break
+                        
+                        print(f"\n✓ New front image saved: {new_path.name}")
+                        print("  Please review the new image.")
+                        
+                    except Exception as e:
+                        print(f"\nError regenerating image: {e}")
+                    
+                    continue  # Loop back to show the review screen
+                    
+                elif choice == "2":
+                    # Modify front image with Gemini
+                    print(f"\n{'='*60}")
+                    print("MODIFY FRONT IMAGE WITH GEMINI")
+                    print(f"{'='*60}")
+                    print("\nDescribe the changes you want to make to the front image.")
+                    print("Examples:")
+                    print("  - 'Make the coat shorter to expose the knees'")
+                    print("  - 'Change the pose to have arms more horizontal'")
+                    print("  - 'Remove the hat and show the hair'")
+                    print("  - 'Make the background pure white'")
+                    
+                    edit_prompt = typer.prompt(
+                        "\nEdit prompt",
+                        type=str,
+                    )
+                    
+                    if not edit_prompt.strip():
+                        print("\nNo edit prompt provided, returning to menu.")
+                        continue
+                    
+                    gemini_key = os.environ.get(GEMINI_API_KEY_ENV)
+                    if not gemini_key:
+                        print(f"\nError: {GEMINI_API_KEY_ENV} not set.")
+                        continue
+                    
+                    try:
+                        print(f"\n  Editing image with prompt: '{edit_prompt}'")
+                        print(f"  Using model: gemini-3-pro-image-preview (Nano Banana Pro)")
+                        
+                        edited_data = edit_image_with_gemini(
+                            source_image_path=front_image_path,
+                            edit_prompt=edit_prompt,
+                            api_key=gemini_key,
+                        )
+                        
+                        # Save edited image with a new name to preserve original
+                        edited_filename = front_image_path.stem + "_edited" + front_image_path.suffix
+                        edited_path = images_dir / edited_filename
+                        edited_path.write_bytes(edited_data)
+                        
+                        # Update front_image_path to use the edited version
+                        front_image_path = edited_path
+                        
+                        # Update saved_image_paths if it exists
+                        if 'saved_image_paths' in dir() and saved_image_paths:
+                            saved_image_paths.append(edited_path)
+                        
+                        print(f"\n✓ Edited image saved: {edited_path.name}")
+                        print("  Please review the edited image.")
+                        
+                    except Exception as e:
+                        print(f"\nError editing image: {e}")
+                    
+                    continue  # Loop back to show the review screen
+                    
+                else:
+                    # Skip 3D generation
+                    proceed_with_3d = False
+                    print("\n(3D generation skipped by user)")
+                    print(f"\nYou can generate the 3D model later with:")
+                    print(f"  uv run generate_prompts.py hunyuan3d --image {front_image_path}")
+                    break
+        
+        if proceed_with_3d:
+            print(f"\n{'='*60}")
+            print("STAGE 5: Generating 3D model with Hunyuan API...")
+            print(f"{'='*60}")
+            
+            # Check if we have a front image from Stage 4
+            if front_image_path and front_image_path.exists():
+                # Check required env vars for 3D generation (with COS since we're uploading an image)
+                missing_vars = check_required_env_vars(include_cos=True)
+                
+                if missing_vars:
+                    print(f"\nWarning: Missing environment variables for 3D generation:")
+                    for var in missing_vars:
+                        print(f"  - {var}")
+                    print("Skipping 3D model generation.")
+                else:
+                    # Check provider availability
+                    if provider_3d == "sdk" and not is_sdk_available():
+                        print("Warning: SDK provider not available, falling back to HTTP.")
+                        actual_provider = "http"
+                    else:
+                        actual_provider = provider_3d
+                    
+                    try:
+                        print(f"Using front image: {front_image_path}")
+                        
+                        # Create output directory for 3D model
+                        hunyuan3d_dir = run_output_dir / "hunyuan3d"
+                        hunyuan3d_dir.mkdir(parents=True, exist_ok=True)
+                        
+                        result = generate_3d_model(
+                            image=front_image_path,
+                            output_dir=hunyuan3d_dir,
+                            timeout=timeout_3d,
+                            verbose=True,
+                            provider_type=actual_provider,
+                        )
+                        
+                        if result.status == "DONE" and result.obj_path:
+                            print(f"\n3D Model generated successfully!")
+                            print(f"  OBJ: {result.obj_path}")
+                            print(f"  Time: {result.elapsed_seconds:.1f}s")
+                        else:
+                            print(f"\nWarning: 3D generation completed with status: {result.status}")
+                            if result.error_message:
+                                print(f"  Error: {result.error_message}")
+                                
+                    except Exception as e:
+                        print(f"Warning: 3D model generation failed: {e}")
+                        print("Previous stages completed successfully.")
+            else:
+                if skip_images:
+                    print("\n(3D generation skipped - no image available, Stage 4 was skipped)")
+                else:
+                    print("\nWarning: No front image available for 3D generation.")
+                    print("Either image generation failed or no front view was created.")
+    else:
+        print("\n(3D model generation skipped)")
     
     print(f"\n{'='*60}")
     print("PIPELINE COMPLETE!")

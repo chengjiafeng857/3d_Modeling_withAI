@@ -324,6 +324,143 @@ def generate_image_with_gemini_and_text(
     return image_data, text_response
 
 
+def edit_image_with_gemini(
+    source_image_path: Path,
+    edit_prompt: str,
+    api_key: str,
+    aspect_ratio: str = IMAGE_ASPECT_RATIO,
+    image_size: str = IMAGE_SIZE,
+) -> bytes:
+    """
+    Edit an existing image using Gemini 3 Pro Image Preview with a text prompt.
+    
+    This function takes an existing image and a text prompt describing the
+    desired modifications, then returns the edited image.
+    
+    Args:
+        source_image_path: Path to the source image to edit
+        edit_prompt: Text prompt describing the desired edits
+        api_key: The Gemini API key
+        aspect_ratio: Image aspect ratio (default: "1:1")
+        image_size: Output resolution (default: "2K")
+        
+    Returns:
+        Edited image data as bytes (JPEG format)
+        
+    Raises:
+        ImportError: If google-genai is not installed
+        FileNotFoundError: If source image doesn't exist
+        Exception: If the API call fails
+        
+    Example:
+        >>> edited = edit_image_with_gemini(
+        ...     Path("front.jpg"),
+        ...     "Make the coat shorter to expose the knees",
+        ...     api_key="your-key"
+        ... )
+    """
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError:
+        raise ImportError(
+            "google-genai package is required for image editing.\n"
+            "Install it with: pip install google-genai\n"
+            "Or: uv add google-genai"
+        )
+    
+    if not source_image_path.exists():
+        raise FileNotFoundError(f"Source image not found: {source_image_path}")
+    
+    # Read the source image
+    image_bytes = source_image_path.read_bytes()
+    
+    # Determine mime type from file extension
+    suffix = source_image_path.suffix.lower()
+    mime_type = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+    }.get(suffix, "image/jpeg")
+    
+    # Create the Gemini client
+    client = genai.Client(api_key=api_key)
+    
+    # Create image part from the source image
+    image_part = types.Part.from_bytes(
+        data=image_bytes,
+        mime_type=mime_type,
+    )
+    
+    # Configure image generation settings
+    config = types.GenerateContentConfig(
+        response_modalities=['IMAGE'],
+        image_config=types.ImageConfig(
+            aspect_ratio=aspect_ratio,
+            image_size=image_size,
+        ),
+    )
+    
+    # Generate edited image - pass both text prompt and source image
+    response = client.models.generate_content(
+        model=IMAGE_MODEL,
+        contents=[edit_prompt, image_part],
+        config=config,
+    )
+    
+    # Extract the image from the response
+    for part in response.parts:
+        if part.inline_data is not None:
+            return part.inline_data.data
+    
+    raise Exception("No image was generated. The API returned an empty response.")
+
+
+def regenerate_single_view(
+    spec: "CharacterSpec",
+    view: str,
+    version: str,
+    api_key: Optional[str] = None,
+    aspect_ratio: str = IMAGE_ASPECT_RATIO,
+    image_size: str = IMAGE_SIZE,
+) -> GeneratedImage:
+    """
+    Regenerate a single view image.
+    
+    Args:
+        spec: The character specification
+        view: The view to generate ("front", "side", or "back")
+        version: Version string for filenames
+        api_key: Optional API key (uses env var if not provided)
+        aspect_ratio: Image aspect ratio
+        image_size: Output resolution
+        
+    Returns:
+        GeneratedImage object with the new image
+    """
+    if api_key is None:
+        api_key = get_api_key()
+    
+    prompt = build_tpose_prompt(spec, view)
+    print(f"  Regenerating {view} view...")
+    print(f"  Using model: {IMAGE_MODEL}")
+    
+    image_data = generate_image_with_gemini(
+        prompt=prompt,
+        api_key=api_key,
+        aspect_ratio=aspect_ratio,
+        image_size=image_size,
+    )
+    
+    return GeneratedImage(
+        view=view,
+        image_data=image_data,
+        prompt_used=prompt,
+    )
+
+
 # -----------------------------------------------------------------------------
 # MAIN GENERATION FUNCTION
 # -----------------------------------------------------------------------------
