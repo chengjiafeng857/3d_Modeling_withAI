@@ -26,6 +26,7 @@ from .models import CharacterSpec
 from .stage1_base_prompts import (
     format_color_palette,
     format_key_props,
+    format_extra_notes,
 )
 
 
@@ -118,14 +119,27 @@ def build_tpose_prompt(spec: CharacterSpec, view: str) -> str:
     # Format spec fields
     color_str = format_color_palette(spec.color_palette)
     props_str = format_key_props(spec.key_props)
+    notes_str = format_extra_notes(spec.extra_notes)
+    # Note: animation_focus is intentionally not included in image prompts
+    # It's a design consideration for ensuring the character supports planned movements,
+    # not a visual element to render in the reference image
     
-    # Common base for all views
+    # Common base for all views - natural prose style
+    # Build character description from spec fields
     base_prompt = (
         f"Full body T-pose character reference of {spec.name}, "
-        f"a {spec.role}, {spec.game_style} style. "
-        f"Character has {spec.silhouette}. "
-        f"Color palette: {color_str}. "
+        f"a {spec.role} rendered in {spec.game_style} style. "
+        f"The character has a distinctive silhouette: {spec.silhouette}. "
+        f"Color scheme features {color_str}. "
     )
+    
+    # Add props if present (items the character carries)
+    if props_str:
+        base_prompt += f"Has {props_str} as equipment, do not hold in hands, keep them visible."
+    
+    # Add extra notes as additional context (environment, mood, etc.)
+    if notes_str:
+        base_prompt += f"{notes_str} "
     
     # View-specific additions
     view_specifics = {

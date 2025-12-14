@@ -105,7 +105,8 @@ class RefinedPrompts:
 # System prompt that defines the LLM's role and behavior
 SYSTEM_PROMPT_BASE = """You are an expert AI art prompt engineer specializing in game character concept art.
 
-Your job is to take a character specification and create highly effective prompts for AI image generators for gemini-3-pro-image-preview model.
+Your job is to take a character specification and create highly effective prompts for AI image generators (like Midjourney, DALL-E, Stable Diffusion, or Gemini).
+
 Key principles for your prompts:
 1. Be SPECIFIC and DETAILED - vague prompts produce generic results
 2. Include art style references that match the game style
@@ -128,10 +129,9 @@ For T-pose reference images (used in 3D modeling/rigging):
 Output ONLY the prompt text, with no explanation or commentary."""
 
 SYSTEM_PROMPT_WITH_SEARCH = """You are an expert AI art prompt engineer with access to web search.
-Your job is to take a character specification and create highly effective prompts for AI image generators for gemini-3-pro-image-preview model.
 
 Before generating prompts, search for:
-1. Current AI art prompt for gemini-3-pro-image-preview model trends and best practices
+1. Current AI art prompt trends and best practices
 2. Popular style keywords that work well with image generators
 3. Reference images of similar character types
 
@@ -187,8 +187,6 @@ def build_tpose_request(spec: CharacterSpec, view: str) -> str:
     """Build the user request for a T-pose prompt."""
     color_str = format_color_palette(spec.color_palette)
     props_str = format_key_props(spec.key_props)
-    anim_str = format_animation_focus(spec.animation_focus)
-    notes_str = format_extra_notes(spec.extra_notes)
     
     view_descriptions = {
         "front": "FRONT VIEW - character facing the camera directly",
@@ -196,31 +194,26 @@ def build_tpose_request(spec: CharacterSpec, view: str) -> str:
         "back": "BACK VIEW - character facing away from camera",
     }
     
-    return f"""You are a prompt engineer helping a game artist generate a T-pose reference image for 3D character modeling. Using the character specification below, produce a single, detailed prompt for a 2D image model that will generate a full-body T-pose of this character. Requirements:
-## follow best practices for gemini-3-pro-image-preview model ##
-* Neutral T-pose (arms extended horizontally).
-* Full body visible, {view_descriptions.get(view, view)} No cropping of feet or hands.
-* Legs clearly visible, no cropping of feet or hands.
-* CRITICAL: Knee structure must be visible, full leg anatomy must be visible.
-* Simple, clean background (flat grey or white).
-* Even, neutral lighting (no heavy shadows or dramatic color lighting).
-* No UI, overlays in the image.
-* Design consistent with the game style and color palette.
-* Professional game character art quality.
+    return f"""Create a detailed prompt for generating a T-pose character reference image.
 
-Output only the final T-pose image prompt, no explanation.
+Character Specification:
+- Name: {spec.name}
+- Role: {spec.role}
+- Game Style: {spec.game_style}
+- Silhouette: {spec.silhouette}
+- Color Palette: {color_str}
+- Key Props: {props_str}
 
-Character spec:
+Required View: {view_descriptions.get(view, view)}
 
-* Name: {spec.name}
-* Role: {spec.role}
-* Game style: {spec.game_style}
-* Silhouette: {spec.silhouette}
-* Color palette: {color_str}
-* Key props: {props_str}
-* Animation focus: {anim_str}
-* Extra notes: {notes_str}
-"""
+The prompt must specify:
+1. T-pose with arms extended horizontally
+2. Full body from head to feet
+3. CRITICAL: Knee structure must be visible - if character has long coat/robe/dress, it must be open or short to show full leg anatomy
+4. Clean white/gray background
+5. Even studio lighting
+6. No text or watermarks
+7. Professional game character art quality"""
 
 
 # -----------------------------------------------------------------------------
@@ -440,7 +433,7 @@ def refine_prompts_with_llm(
         api_key = get_openai_api_key()
     
     # Determine which model/API will be used
-    api_type = "Chat Completions" if not USE_RESPONSES_API else "Responses API"
+    api_type = "Responses API" if USE_RESPONSES_API else "Chat Completions"
     
     print(f"  Using: {api_type}")
     print(f"  Model: {model}")
